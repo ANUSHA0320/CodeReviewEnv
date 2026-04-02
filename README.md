@@ -1,3 +1,20 @@
+---
+title: CodeReviewEnv-v0
+emoji: 🔍
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+license: mit
+short_description: AI Code Review Reinforcement Learning Gym Environment
+tags:
+  - reinforcement-learning
+  - code-review
+  - gymnasium
+  - openai-gym
+  - benchmark
+---
+
 # CodeReviewEnv-v0 · AI Code Review Gym
 
 > An OpenAI Gym environment that benchmarks AI agents on automated pull-request code review.
