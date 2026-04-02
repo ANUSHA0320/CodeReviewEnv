@@ -1,0 +1,87 @@
+# configs/gym.yaml
+# ================
+# Metadata for CodeReviewEnv-v0 registration and evaluation.
+
+name: CodeReviewEnv
+version: v0
+description: >
+  AI Code Review Reinforcement Learning Environment.
+  Simulates automated pull-request review for RL agent evaluation.
+
+author: project contributors
+license: MIT
+
+environment:
+  id: CodeReviewEnv-v0
+  entry_point: code_review_env.env:CodeReviewEnv
+  max_episode_steps: 5
+  reward_threshold: 0.75    # target average reward for "solved"
+
+tasks:
+  - name: easy
+    dataset: data/easy_prs.json
+    grader: graders/easy_grader.py
+    target_score: 0.80
+    description: Detect surface-level issues (hardcoded secrets, unused vars, syntax errors)
+
+  - name: medium
+    dataset: data/medium_prs.json
+    grader: graders/medium_grader.py
+    target_score: 0.60
+    description: Detect logical bugs (off-by-one, infinite loops, SQL injection)
+
+  - name: hard
+    dataset: data/hard_prs.json
+    grader: graders/hard_grader.py
+    target_score: 0.40
+    description: Suggest improved code patches (Pythonic rewrites, design improvements)
+
+baseline:
+  script: baseline/run_agent.py
+  model: gpt-3.5-turbo
+  episodes_per_task: 5
+  seed: 42
+
+observation_space:
+  type: Dict
+  fields:
+    - name: diff_patch
+      type: Text
+      max_length: 4096
+    - name: repository_context
+      type: Text
+      max_length: 512
+    - name: test_results
+      type: Dict
+      sub_fields:
+        - name: tests_passed
+          type: Discrete
+          n: 2
+    - name: lint_report
+      type: Dict
+      sub_fields:
+        - name: unused_variable
+          type: Discrete
+          n: 2
+    - name: file_type
+      type: Text
+      max_length: 64
+
+action_space:
+  type: Discrete
+  n: 5
+  labels:
+    0: approve
+    1: reject
+    2: request_changes
+    3: comment_bug
+    4: suggest_patch
+
+reward_shaping:
+  correct_bug_detection: +0.4
+  correct_review_decision: +0.3
+  useful_code_suggestion: +0.2
+  request_changes_on_buggy_pr: +0.1
+  approve_buggy_code: -0.3
+  reject_clean_code: -0.2
+  terminal_bonus_multiplier: 0.5

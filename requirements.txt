@@ -1,0 +1,22 @@
+# Core RL environment
+gymnasium>=0.29.0
+numpy>=1.23.0
+
+# Validation / typing
+pydantic>=1.10.0
+
+# LLM baseline
+openai>=1.0.0
+
+# Similarity scoring (hard grader)
+scikit-learn>=1.2.0
+
+# Config parsing
+PyYAML>=6.0
+
+# API demo (optional)
+fastapi>=0.95.0
+uvicorn[standard]>=0.21.0
+
+# Testing
+pytest>=7.0.0
