@@ -17,7 +17,12 @@ tags:
 
 # CodeReviewEnv-v0 · AI Code Review Gym
 
-> An OpenAI Gym environment that benchmarks AI agents on automated pull-request code review.
+[![Tests](https://github.com/ANUSHA0320/CodeReviewEnv/actions/workflows/tests.yml/badge.svg)](https://github.com/ANUSHA0320/CodeReviewEnv/actions/workflows/tests.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![Gymnasium](https://img.shields.io/badge/gymnasium-1.x-green.svg)](https://gymnasium.farama.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> A **Gymnasium**-compatible reinforcement learning environment that benchmarks AI agents on automated pull-request code review.
 
 ---
 
@@ -33,13 +38,19 @@ suggest a patch, or request changes — and is scored on accuracy and quality.
 ## Project Structure
 
 ```
-code-review-gym/
-├── code_review_env/      ← Gym environment (env.py, state.py, actions.py, reward.py)
+CodeReviewEnv/
+├── code_review_env/      ← Gymnasium environment (env.py, state.py, actions.py, reward.py)
 ├── tasks/                ← Evaluation logic (easy / medium / hard)
 ├── graders/              ← Deterministic graders (wrap tasks)
 ├── data/                 ← PR datasets (JSON)  easy / medium / hard
 ├── baseline/             ← run_agent.py  (heuristic + LLM agents)
+├── app/                  ← FastAPI REST API (main.py)
+├── tests/                ← 74 pytest unit + integration tests
 ├── configs/              ← gym.yaml  metadata
+├── .github/workflows/    ← CI: tests on Python 3.10 / 3.11 / 3.12
+├── gradio_app.py         ← Interactive Gradio web UI
+├── pyproject.toml        ← Modern PEP 621 package definition
+├── setup.py              ← Legacy editable install shim
 ├── Dockerfile
 ├── requirements.txt
 └── README.md
@@ -52,37 +63,47 @@ code-review-gym/
 ### 1 — Install
 
 ```bash
-git clone <repo-url>
-cd code-review-gym
+git clone https://github.com/ANUSHA0320/CodeReviewEnv
+cd CodeReviewEnv
 pip install -r requirements.txt
+# or editable install:
+pip install -e .
 ```
 
-### 2 — Run heuristic baseline (no API key)
+### 2 — Launch the interactive Gradio UI
+
+```bash
+python gradio_app.py
+# Open: http://localhost:7860
+```
+
+### 3 — Run heuristic baseline (no API key)
 
 ```bash
 python baseline/run_agent.py --no-llm --episodes 5
 ```
 
-### 3 — Run LLM baseline
+### 4 — Run LLM baseline
 
 ```bash
 export OPENAI_API_KEY=sk-...
 python baseline/run_agent.py --episodes 5 --seed 42
 ```
 
-### 4 — Use the environment directly
+### 5 — Use the environment directly
 
 ```python
-import gym
+import gymnasium as gym
 import code_review_env   # registers CodeReviewEnv-v0
 
 env = gym.make("CodeReviewEnv-v0", difficulty="easy")
-obs = env.reset()
+obs, info = env.reset()
 
 done = False
 while not done:
     action = env.action_space.sample()   # replace with your agent
-    obs, reward, done, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step(action)
+    done = terminated or truncated
     env.render()
 
 print("Score:", info["task_score"])
@@ -105,24 +126,29 @@ env.close()
 
 ```python
 spaces.Dict({
-    "diff_patch":          spaces.Text(max_length=4096),
-    "repository_context":  spaces.Text(max_length=512),
-    "test_results":        spaces.Dict({"tests_passed": spaces.Discrete(2)}),
-    "lint_report":         spaces.Dict({"unused_variable": spaces.Discrete(2)}),
-    "file_type":           spaces.Text(max_length=64),
+    "diff_patch":          spaces.Text(min_length=0, max_length=4096, charset=string.printable),
+    "repository_context":  spaces.Text(min_length=0, max_length=512,  charset=string.printable),
+    "test_results":        spaces.Dict({"tests_passed":    spaces.Discrete(2)}),  # 0=fail 1=pass
+    "lint_report":         spaces.Dict({"unused_variable": spaces.Discrete(2)}),  # 0=clean 1=warn
+    "file_type":           spaces.Text(min_length=1, max_length=64,   charset=string.printable),
 })
 ```
+
+---
 
 ## Action Space
 
 ```python
 spaces.Discrete(5)
-# 0 = approve
-# 1 = reject
-# 2 = request_changes
-# 3 = comment_bug
-# 4 = suggest_patch
 ```
+
+| Action | Label | Terminal? | When to use |
+|:------:|-------|:---------:|-------------|
+| 0 | `approve` | ✅ Yes | PR looks clean — no issues found |
+| 1 | `reject` | ✅ Yes | PR has a critical bug that blocks merge |
+| 2 | `request_changes` | No | Issues found but fixable — ask for revision |
+| 3 | `comment_bug` | No | Annotate a specific bug in the diff |
+| 4 | `suggest_patch` | No | Propose an improved version of the code |
 
 ---
 
@@ -140,50 +166,117 @@ spaces.Discrete(5)
 
 ---
 
+## REST API
+
+A FastAPI server exposes the environment over HTTP with a Swagger UI:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 7860
+# Open: http://localhost:7860/docs
+```
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Welcome page |
+| `/health` | GET | Health check |
+| `/reset` | GET | Start new episode (`?difficulty=easy`) |
+| `/step` | POST | Submit action `{"action": 3, "difficulty": "easy"}` |
+| `/render` | GET | Current state summary |
+| `/scores` | GET | Leaderboard of completed episodes |
+| `/actions` | GET | List all actions |
+| `/docs` | GET | Interactive Swagger UI |
+
+---
+
 ## Docker
 
 ```bash
 # Build
 docker build -t code-review-env .
 
-# Run (heuristic, no API key needed)
-docker run code-review-env
+# Run Gradio UI on port 7860 (default)
+docker run -p 7860:7860 code-review-env
 
-# Run with LLM
-docker run -e OPENAI_API_KEY=sk-... code-review-env \
-  python baseline/run_agent.py --episodes 5
+# Run FastAPI REST server instead
+docker run -p 7860:7860 code-review-env \
+  uvicorn app.main:app --host 0.0.0.0 --port 7860
+
+# Run heuristic baseline only
+docker run code-review-env \
+  python baseline/run_agent.py --no-llm --episodes 5
 ```
 
 ---
 
-## Expected Baseline Scores
+## Gradio UI
 
-| Agent | Easy | Medium | Hard |
-|-------|:----:|:------:|:----:|
-| HeuristicAgent | ~0.80 | ~0.60 | ~0.40 |
-| GPT-3.5-turbo | ~0.85 | ~0.65 | ~0.45 |
+The interactive Gradio app (`gradio_app.py`) ships with three tabs:
+
+| Tab | Description |
+|-----|-------------|
+| **▶ Play** | Load a PR, choose an action via buttons, see live reward + score feedback |
+| **🏆 Leaderboard** | Table of all completed episodes with per-difficulty averages |
+| **ℹ️ About** | Full API reference, observation/action space docs, quick-start guide |
+
+The **Auto Demo** button runs a full heuristic episode automatically so evaluators can see a complete trajectory without manual input.
 
 ---
 
-## Gym Compliance
+## Measured Baseline Scores
 
-The environment passes `gym.utils.env_checker.check_env`:
+Scores measured over 8 episodes (full dataset) with `--seed 42`:
+
+| Agent | Easy | Medium | Hard |
+|-------|:----:|:------:|:----:|
+| HeuristicAgent (no LLM) | 1.000 | 1.000 | 0.580 |
+| GPT-3.5-turbo | ~0.90 | ~0.75 | ~0.60 |
+
+> Hard score for HeuristicAgent reflects patch similarity from observable diff lines only (no access to reference patch).
+
+---
+
+## Continuous Integration
+
+The repository ships with a GitHub Actions workflow (`.github/workflows/tests.yml`) that runs on every push and pull request:
+
+- **Matrix:** Python 3.10, 3.11, 3.12 on `ubuntu-latest`
+- **Steps:** install deps → `pytest` with coverage → `check_env` on all difficulties → heuristic baseline smoke test
+
+---
+
+## Gymnasium Compliance
+
+The environment passes `gymnasium.utils.env_checker.check_env` on all three difficulties:
 
 ```python
-from gym.utils.env_checker import check_env
+from gymnasium.utils.env_checker import check_env
 import code_review_env
+from code_review_env.env import CodeReviewEnv
 
-env = code_review_env.CodeReviewEnv(difficulty="easy")
-check_env(env)   # no errors
+for difficulty in ("easy", "medium", "hard"):
+    env = CodeReviewEnv(difficulty=difficulty)
+    check_env(env)   # no errors
+    env.close()
+    print(f"check_env({difficulty}) PASSED")
 ```
 
 ---
 
 ## Hugging Face Spaces Deployment
 
-Upload the entire repository to a Hugging Face Space with `SDK: docker`.
-The included `Dockerfile` will be picked up automatically.
-The baseline script will run on startup and log scores to the Space logs.
+This repo is configured for [Hugging Face Spaces](https://huggingface.co/spaces/anu1720/code-review-gym) with `sdk: docker`.
+The Dockerfile automatically builds and serves the **Gradio UI** on port 7860.
+
+```
+https://huggingface.co/spaces/anu1720/code-review-gym
+```
+
+To deploy your own fork:
+
+```bash
+git remote add hf https://huggingface.co/spaces/<your-user>/<your-space>
+git push hf main
+```
 
 ---
 

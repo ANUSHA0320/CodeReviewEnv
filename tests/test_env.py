@@ -26,7 +26,7 @@ def env(request):
 
 @pytest.fixture
 def easy_env():
-    e = CodeReviewEnv(difficulty="easy", seed=0)
+    e = CodeReviewEnv(difficulty="easy", seed=0, render_mode="ansi")
     yield e
     e.close()
 
@@ -203,6 +203,6 @@ class TestGymMake:
 class TestRender:
     def test_render_ansi_returns_string(self, easy_env):
         easy_env.reset()
-        output = easy_env.render(mode="ansi")
+        output = easy_env.render()
         assert isinstance(output, str)
         assert "Difficulty" in output or "diff" in output.lower()

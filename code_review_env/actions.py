@@ -52,3 +52,12 @@ def is_terminal(action: int) -> bool:
 def action_label(action: int) -> str:
     """Return human-readable label for an action int."""
     return ACTION_LABELS.get(action, f"unknown_action_{action}")
+
+
+__all__ = [
+    "Action",
+    "ACTION_LABELS",
+    "TERMINAL_ACTIONS",
+    "is_terminal",
+    "action_label",
+]

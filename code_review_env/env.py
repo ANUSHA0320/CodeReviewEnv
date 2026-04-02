@@ -190,8 +190,16 @@ class CodeReviewEnv(gym.Env):
         elif action == Action.COMMENT_BUG:
             state.add_comment(f"Bug detected in: {state.current_pull_request.get('id','?')}")
         elif action == Action.SUGGEST_PATCH:
-            expected = state.current_pull_request.get("expected_patch", "")
-            state.add_comment(f"Suggested patch: {expected[:120]}")
+            # Build a patch suggestion from the observable diff (+lines) only —
+            # the agent must NOT access the hidden `expected_patch` ground truth.
+            diff = state.current_pull_request.get("diff_patch", "")
+            added_lines = [
+                line[1:].strip()
+                for line in diff.splitlines()
+                if line.startswith("+") and not line.startswith("+++")
+            ]
+            agent_patch = "\n".join(added_lines[:20])  # cap to 20 lines
+            state.add_comment(f"Suggested patch: {agent_patch}")
         elif action == Action.REQUEST_CHANGES:
             state.add_comment("Requesting changes before merge.")
 
@@ -217,7 +225,7 @@ class CodeReviewEnv(gym.Env):
 
         return self._current_obs, reward, terminated, truncated, info
 
-    def render(self, mode: str = "human") -> Optional[str]:
+    def render(self) -> Optional[str]:
         """Print a human-readable summary of the current state."""
         pr = self._state.current_pull_request
         output_lines = [
@@ -237,10 +245,11 @@ class CodeReviewEnv(gym.Env):
         output_lines.append("=" * 60)
         rendered = "\n".join(output_lines)
 
-        if mode == "human":
-            print(rendered)
-            return None
-        return rendered   # mode == "ansi"
+        if self.render_mode == "ansi":
+            return rendered
+        # human mode (default): print and return None
+        print(rendered)
+        return None
 
     def close(self) -> None:
         """Clean up resources (nothing to do here)."""

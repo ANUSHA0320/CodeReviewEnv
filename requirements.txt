@@ -3,9 +3,9 @@ gymnasium>=0.29.0
 numpy>=1.23.0
 
 # Validation / typing
-pydantic>=1.10.0
+pydantic>=2.0.0
 
-# LLM baseline
+# LLM baseline (optional – requires OPENAI_API_KEY)
 openai>=1.0.0
 
 # Similarity scoring (hard grader)
@@ -14,9 +14,13 @@ scikit-learn>=1.2.0
 # Config parsing
 PyYAML>=6.0
 
-# API demo (optional)
-fastapi>=0.95.0
+# API server (FastAPI on port 7860)
+fastapi>=0.100.0
 uvicorn[standard]>=0.21.0
+httpx>=0.24.0
+
+# Interactive Gradio UI
+gradio>=4.0.0
 
 # Testing
 pytest>=7.0.0

@@ -110,5 +110,19 @@
     "expected_patch": "from pathlib import Path\n\ndef build_path(base, sub, filename):\n    return Path(base) / sub / filename",
     "has_bug": false,
     "reference_tokens": ["from pathlib import Path", "Path(base) /"]
+  },
+  {
+    "id": "hard-009",
+    "difficulty": "hard",
+    "title": "Multi-file PR: replace raw dict with dataclass across two modules",
+    "repository_context": "models/user.py, api/serializer.py",
+    "file_type": "python",
+    "diff_patch": "--- a/models/user.py\n+++ b/models/user.py\n@@ -1,4 +1,8 @@\n-def make_user(name, age):\n-    return {'name': name, 'age': age}\n+from dataclasses import dataclass\n+\n+@dataclass\n+class User:\n+    name: str\n+    age: int\n--- a/api/serializer.py\n+++ b/api/serializer.py\n@@ -1,5 +1,6 @@\n-def serialize(user_dict):\n-    return f\"{user_dict['name']} ({user_dict['age']})\"\n+from models.user import User\n+\n+def serialize(user: User) -> str:\n+    return f\"{user.name} ({user.age})\"",
+    "test_results": { "tests_passed": true },
+    "lint_report": { "unused_variable": false },
+    "expected_issues": ["use_dataclass_over_dict", "missing_type_hints"],
+    "expected_patch": "from dataclasses import dataclass\n\n@dataclass\nclass User:\n    name: str\n    age: int",
+    "has_bug": true,
+    "reference_tokens": ["@dataclass", "dataclass", "name: str", "age: int", "User"]
   }
 ]

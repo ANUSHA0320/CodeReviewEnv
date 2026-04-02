@@ -19,4 +19,4 @@ register(
 from code_review_env.env import CodeReviewEnv  # noqa: E402, F401
 import gymnasium as gym  # noqa: F401 – ensure gymnasium is imported
 
-__all__ = ["CodeReviewEnv"]
+__all__ = ["CodeReviewEnv", "gym"]
