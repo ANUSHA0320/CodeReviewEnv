@@ -58,8 +58,8 @@ def reset_env(difficulty: str, session: dict):
     diff_text = obs["diff_patch"] or "(empty diff)"
     ctx_text  = obs["repository_context"] or "unknown"
     file_type = obs["file_type"] or "python"
-    tests_ok  = "✅ Passing" if obs["test_results"]["tests_passed"] else "❌ Failing"
-    lint_warn = "⚠️ Unused variable detected" if obs["lint_report"]["unused_variable"] else "✅ No lint warnings"
+    tests_ok  = "Passing" if obs["test_results"]["tests_passed"] else "Failing"
+    lint_warn = "Unused variable detected" if obs["lint_report"]["unused_variable"] else "No lint warnings"
 
     pr_info = (
         f"**PR ID:** `{info.get('pr_id', 'unknown')}`  |  "
@@ -89,10 +89,10 @@ def take_action(difficulty: str, action_idx: int, session: dict):
     status = f"Step: {steps} / 5 | Score: {score:.3f} | Decision: {decision}"
 
     if done:
-        grade = "CORRECT ✅" if score >= 0.7 else ("PARTIAL ⚠️" if score >= 0.4 else "WRONG ❌")
+        grade = "CORRECT" if score >= 0.7 else ("PARTIAL" if score >= 0.4 else "WRONG")
         log_msg = (
-            f"[DONE] Action: **{label}**  →  Reward: `{reward:+.3f}`\n\n"
-            f"**Episode Score: {score:.3f}** — {grade}\n\n"
+            f"[DONE] Action: **{label}**  ->  Reward: `{reward:+.3f}`\n\n"
+            f"**Episode Score: {score:.3f}** - {grade}\n\n"
             f"Click **Load PR** to start a new episode."
         )
         session["log"].append({
@@ -104,7 +104,7 @@ def take_action(difficulty: str, action_idx: int, session: dict):
         })
     else:
         log_msg = (
-            f"[STEP {steps}] Action: **{label}**  →  Reward: `{reward:+.3f}`  "
+            f"[STEP {steps}] Action: **{label}**  ->  Reward: `{reward:+.3f}`  "
             f"| Score so far: `{score:.3f}`"
         )
     return log_msg, status, session
@@ -162,8 +162,8 @@ def heuristic_demo(difficulty: str, session: dict):
         log_lines.append(f"- Step 1: `{ACTION_LABELS[action]}` → reward `{r2:+.3f}`")
 
     score = final_info.get("task_score", 0.0)
-    grade = "CORRECT ✅" if score >= 0.7 else ("PARTIAL ⚠️" if score >= 0.4 else "WRONG ❌")
-    log_lines.append(f"\n**Final Score: {score:.3f}** — {grade}")
+    grade = "CORRECT" if score >= 0.7 else ("PARTIAL" if score >= 0.4 else "WRONG")
+    log_lines.append(f"\n**Final Score: {score:.3f}** - {grade}")
 
     session["log"].append({
         "difficulty": difficulty,
@@ -182,11 +182,11 @@ def heuristic_demo(difficulty: str, session: dict):
 # ── Gradio UI ──────────────────────────────────────────────────────────────────
 
 ACTION_CHOICES = [
-    (f"✅ 0 – Approve (end)", 0),
-    (f"❌ 1 – Reject (end)", 1),
-    (f"🔄 2 – Request Changes", 2),
-    (f"🐛 3 – Comment Bug", 3),
-    (f"🔧 4 – Suggest Patch", 4),
+    ("0 - Approve (end)", 0),
+    ("1 - Reject (end)", 1),
+    ("2 - Request Changes", 2),
+    ("3 - Comment Bug", 3),
+    ("4 - Suggest Patch", 4),
 ]
 
 with gr.Blocks(title="CodeReviewEnv-v0") as demo:
@@ -195,7 +195,7 @@ with gr.Blocks(title="CodeReviewEnv-v0") as demo:
     session_state = gr.State(_make_session)
 
     gr.Markdown(
-        """# 🔍 CodeReviewEnv-v0
+        """# CodeReviewEnv-v0
 **AI Pull-Request Code Review Reinforcement Learning Environment**
 
 Simulate a real code review workflow. Load a PR, detect bugs, suggest patches, and score your decisions.
@@ -203,7 +203,7 @@ Each browser session is fully isolated — multiple users can play simultaneousl
 """
     )
 
-    with gr.Tab("▶ Play"):
+    with gr.Tab("Play"):
         with gr.Row():
             difficulty_dd = gr.Dropdown(
                 choices=["easy", "medium", "hard"],
@@ -211,8 +211,8 @@ Each browser session is fully isolated — multiple users can play simultaneousl
                 label="Difficulty",
                 interactive=True,
             )
-            reset_btn = gr.Button("📂 Load PR", variant="primary")
-            demo_btn = gr.Button("🤖 Auto Demo", variant="secondary")
+            reset_btn = gr.Button("Load PR", variant="primary")
+            demo_btn = gr.Button("Auto Demo", variant="secondary")
 
         pr_info_md = gr.Markdown("Click **Load PR** to start.")
         diff_box = gr.Textbox(label="Diff Patch", lines=20, max_lines=40, interactive=False)
@@ -223,7 +223,7 @@ Each browser session is fully isolated — multiple users can play simultaneousl
                 label="Choose Action",
                 value=3,
             )
-            submit_btn = gr.Button("🚀 Submit Action", variant="primary", scale=1)
+            submit_btn = gr.Button("Submit Action", variant="primary", scale=1)
 
         status_bar = gr.Textbox(
             label="Episode Status",
@@ -232,11 +232,11 @@ Each browser session is fully isolated — multiple users can play simultaneousl
         )
         log_box = gr.Markdown("Action log will appear here.")
 
-    with gr.Tab("🏆 Leaderboard"):
-        refresh_btn = gr.Button("🔄 Refresh Leaderboard")
+    with gr.Tab("Leaderboard"):
+        refresh_btn = gr.Button("Refresh Leaderboard")
         leaderboard_md = gr.Markdown("No episodes yet.")
 
-    with gr.Tab("ℹ️ About"):
+    with gr.Tab("About"):
         gr.Markdown(
             """
 ## CodeReviewEnv-v0
@@ -255,8 +255,8 @@ A **Gymnasium-compliant** reinforcement learning environment for automated pull-
 ### Action Space — `Discrete(5)`
 | Action | Label | Terminal? |
 |--------|-------|-----------|
-| 0 | approve | ✅ Yes |
-| 1 | reject | ✅ Yes |
+| 0 | approve | Yes |
+| 1 | reject | Yes |
 | 2 | request_changes | No |
 | 3 | comment_bug | No |
 | 4 | suggest_patch | No |
@@ -276,7 +276,7 @@ GET  /scores
 ```
 
 ### GitHub
-🔗 [github.com/ANUSHA0320/CodeReviewEnv](https://github.com/ANUSHA0320/CodeReviewEnv)
+[github.com/ANUSHA0320/CodeReviewEnv](https://github.com/ANUSHA0320/CodeReviewEnv)
             """
         )
 

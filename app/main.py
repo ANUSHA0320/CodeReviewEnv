@@ -98,7 +98,7 @@ def home():
     """Welcome page with usage instructions."""
     return """
     <html><body style="font-family:monospace;padding:2em;background:#1e1e2e;color:#cdd6f4">
-    <h1 style="color:#89b4fa">&#x1F50D; CodeReviewEnv-v0 API</h1>
+    <h1 style="color:#89b4fa">CodeReviewEnv-v0 API</h1>
     <p>AI Code Review Reinforcement Learning Environment</p>
     <h2 style="color:#a6e3a1">Quick Start</h2>
     <pre style="background:#313244;padding:1em;border-radius:8px">
@@ -120,7 +120,7 @@ easy   → detect hardcoded secrets, syntax errors, unused vars
 medium → detect logical bugs, SQL injection, off-by-one
 hard   → suggest improved code patches
     </pre>
-    <p><a href="/docs" style="color:#89dceb">&#x1F4D6; Interactive Swagger UI &#x2192;</a></p>
+    <p><a href="/docs" style="color:#89dceb">Interactive Swagger UI</a></p>
     </body></html>
     """
 
