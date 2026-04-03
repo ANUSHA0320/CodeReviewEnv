@@ -1,0 +1,129 @@
+# OpenEnv manifest for CodeReviewEnv-v0
+# https://openenv.dev/spec
+
+openenv_version: "1.0"
+
+id: CodeReviewEnv-v0
+name: Code Review Environment
+version: "1.0.0"
+description: >
+  A Gymnasium-compatible reinforcement learning environment that simulates
+  AI-assisted pull-request code review. An agent reads a diff patch and
+  repository context, then takes review actions (approve, reject,
+  request_changes, comment_bug, suggest_patch) to earn rewards based on
+  review quality across easy, medium, and hard difficulty tiers.
+
+author: "anu1720"
+license: MIT
+repository: "https://github.com/ANUSHA0320/CodeReviewEnv"
+space: "https://huggingface.co/spaces/anu1720/code-review-gym"
+
+# ── REST API ─────────────────────────────────────────────────────────────────
+api:
+  base_url: "/"
+  endpoints:
+    reset:
+      method: POST
+      path: /reset
+      description: Start a new review episode. Returns PR observation.
+      request_body:
+        content_type: application/json
+        schema:
+          type: object
+          properties:
+            difficulty:
+              type: string
+              enum: [easy, medium, hard]
+              default: easy
+            seed:
+              type: integer
+              nullable: true
+      response:
+        content_type: application/json
+
+    step:
+      method: POST
+      path: /step
+      description: Submit a review action. Returns reward and done flag.
+      request_body:
+        content_type: application/json
+        schema:
+          type: object
+          required: [action]
+          properties:
+            action:
+              type: integer
+              minimum: 0
+              maximum: 4
+            difficulty:
+              type: string
+              enum: [easy, medium, hard]
+              default: easy
+      response:
+        content_type: application/json
+
+    render:
+      method: GET
+      path: /render
+      description: Human-readable current environment state.
+
+    health:
+      method: GET
+      path: /health
+      description: Health check.
+
+    actions:
+      method: GET
+      path: /actions
+      description: List available actions and their labels.
+
+# ── Spaces ────────────────────────────────────────────────────────────────────
+observation_space:
+  type: Dict
+  fields:
+    diff_patch:
+      type: Text
+      max_length: 4096
+    repository_context:
+      type: Text
+      max_length: 512
+    file_type:
+      type: Text
+      max_length: 64
+    test_results:
+      type: Dict
+      fields:
+        tests_passed:
+          type: Discrete
+          n: 2
+    lint_report:
+      type: Dict
+      fields:
+        unused_variable:
+          type: Discrete
+          n: 2
+
+action_space:
+  type: Discrete
+  n: 5
+  labels:
+    0: approve
+    1: reject
+    2: request_changes
+    3: comment_bug
+    4: suggest_patch
+
+# ── Reward ────────────────────────────────────────────────────────────────────
+reward:
+  range: [-1.0, 1.0]
+  description: >
+    Shaped reward based on review correctness. Terminal actions (approve/reject)
+    yield the final episode score. Intermediate actions yield partial credit.
+
+# ── Episode ───────────────────────────────────────────────────────────────────
+episode:
+  max_steps: 5
+  difficulties:
+    - easy
+    - medium
+    - hard
