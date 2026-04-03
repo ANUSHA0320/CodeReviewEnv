@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Gymnasium environment for AI pull-request code review"
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = [
     "reinforcement-learning",
     "gymnasium",
@@ -40,6 +40,7 @@ dependencies = [
     "uvicorn[standard]>=0.21.0",
     "httpx>=0.24.0",
     "openai>=1.0.0",
+    "openenv-core>=0.2.0",
 ]
 
 [project.optional-dependencies]

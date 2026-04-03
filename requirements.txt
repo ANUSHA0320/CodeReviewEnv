@@ -22,6 +22,9 @@ httpx>=0.24.0
 # Interactive Gradio UI
 gradio>=4.0.0
 
+# OpenEnv framework
+openenv-core>=0.2.0
+
 # Package manager / lock file generation
 uv>=0.2.0
 
