@@ -6,7 +6,8 @@ FastAPI application for CodeReviewEnv-v0.
 Endpoints
 ---------
 GET  /              → welcome + instructions
-GET  /reset         → start a new episode (returns PR observation)
+GET  /reset         → start a new episode (query params)
+POST /reset         → start a new episode (JSON body: {"difficulty":"easy","seed":null})
 POST /step          → submit a review action (returns reward + score)
 GET  /render        → human-readable current state
 GET  /scores        → leaderboard of all completed episodes
@@ -64,6 +65,19 @@ def _get_env(difficulty: str) -> CodeReviewEnv:
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
+class ResetRequest(BaseModel):
+    difficulty: str = "easy"
+    seed: Optional[int] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "difficulty": "easy",
+                "seed": None,
+            }
+        }
+
+
 class StepRequest(BaseModel):
     action: int
     difficulty: str = "easy"
@@ -117,19 +131,11 @@ def health():
     return {"status": "ok", "environment": "CodeReviewEnv-v0", "version": "1.0.0"}
 
 
-@app.get("/reset", tags=["Environment"])
-def reset(
-    difficulty: str = Query(default="easy", enum=["easy", "medium", "hard"]),
-    seed: Optional[int] = Query(default=None),
-):
-    """
-    Start a new review episode.
-    Returns the pull request observation the agent must review.
-    """
+def _build_reset_response(difficulty: str, seed: Optional[int]):
+    """Shared logic for GET and POST /reset."""
     env = _get_env(difficulty)
     obs, info = env.reset(seed=seed)
     _current_obs[difficulty] = obs
-
     return {
         "message": f"New {difficulty} PR loaded. Submit actions via POST /step",
         "difficulty": difficulty,
@@ -144,6 +150,30 @@ def reset(
         "available_actions": ACTION_LABELS,
         "tip": "Use action 3 (comment_bug) first if you see issues, then 1 (reject) or 0 (approve)",
     }
+
+
+@app.get("/reset", tags=["Environment"])
+def reset_get(
+    difficulty: str = Query(default="easy", enum=["easy", "medium", "hard"]),
+    seed: Optional[int] = Query(default=None),
+):
+    """
+    Start a new review episode (GET variant — query params).
+    Returns the pull request observation the agent must review.
+    """
+    return _build_reset_response(difficulty, seed)
+
+
+@app.post("/reset", tags=["Environment"])
+def reset_post(body: ResetRequest = None):
+    """
+    Start a new review episode (POST variant — JSON body).
+    Accepts {"difficulty": "easy", "seed": null}.
+    Returns the pull request observation the agent must review.
+    """
+    if body is None:
+        body = ResetRequest()
+    return _build_reset_response(body.difficulty, body.seed)
 
 
 @app.post("/step", tags=["Environment"])
