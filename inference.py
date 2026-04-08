@@ -67,6 +67,12 @@ def log_end(task: str, score: float, steps: int) -> None:
     print(f"[END] task={task} score={score} steps={steps}", flush=True)
 
 
+def bounded_score(value: float) -> float:
+    """Return score strictly inside (0, 1) for validator compatibility."""
+    eps = 1e-4
+    return min(1.0 - eps, max(eps, float(value)))
+
+
 # ── LLM Agent ─────────────────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = textwrap.dedent("""\
@@ -226,7 +232,7 @@ def run_episode(env: gym.Env, agent, difficulty: str, episode_idx: int) -> dict:
             "done":    done,
         })
 
-    task_score = round(info.get("task_score", 0.0), 4)
+    task_score = round(bounded_score(info.get("task_score", 0.0)), 4)
     steps_taken = info["steps_taken"]
 
     # Required bracket format
