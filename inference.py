@@ -52,6 +52,21 @@ def log(obj: dict) -> None:
     print(json.dumps(obj), flush=True)
 
 
+def log_start(task: str) -> None:
+    """Print [START] block required by OpenEnv validator."""
+    print(f"[START] task={task}", flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool) -> None:
+    """Print [STEP] block required by OpenEnv validator."""
+    print(f"[STEP] step={step} action={action} reward={reward} done={done}", flush=True)
+
+
+def log_end(task: str, score: float, steps: int) -> None:
+    """Print [END] block required by OpenEnv validator."""
+    print(f"[END] task={task} score={score} steps={steps}", flush=True)
+
+
 # ── LLM Agent ─────────────────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = textwrap.dedent("""\
@@ -181,8 +196,12 @@ def run_episode(env: gym.Env, agent, difficulty: str, episode_idx: int) -> dict:
     """Run one episode and emit structured START / STEP / END logs."""
     obs, info = env.reset()
     pr_id = info.get("pr_id", f"ep{episode_idx}")
+    task_name = f"{pr_id}"
     agent.reset()
 
+    # Required bracket format (parsed by OpenEnv validator)
+    log_start(task_name)
+    # Also emit JSON for human readability
     log({"type": "start", "episode": episode_idx, "pr_id": pr_id, "difficulty": difficulty})
 
     total_reward = 0.0
@@ -193,25 +212,35 @@ def run_episode(env: gym.Env, agent, difficulty: str, episode_idx: int) -> dict:
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
         total_reward += reward
+        action_label = ACTION_LABELS.get(action, str(action))
 
+        # Required bracket format
+        log_step(info["steps_taken"], action_label, round(reward, 4), done)
+        # JSON
         log({
             "type":    "step",
             "episode": episode_idx,
             "step":    info["steps_taken"],
-            "action":  ACTION_LABELS.get(action, str(action)),
+            "action":  action_label,
             "reward":  round(reward, 4),
             "done":    done,
         })
+
+    task_score = round(info.get("task_score", 0.0), 4)
+    steps_taken = info["steps_taken"]
+
+    # Required bracket format
+    log_end(task_name, task_score, steps_taken)
 
     result = {
         "type":         "end",
         "episode":      episode_idx,
         "pr_id":        pr_id,
         "difficulty":   difficulty,
-        "task_score":   round(info.get("task_score", 0.0), 4),
+        "task_score":   task_score,
         "total_reward": round(total_reward, 4),
         "decision":     info.get("review_decision", "unknown"),
-        "steps":        info["steps_taken"],
+        "steps":        steps_taken,
     }
     log(result)
     return result
