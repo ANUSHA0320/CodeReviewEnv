@@ -73,64 +73,6 @@ _SYSTEM_PROMPT = textwrap.dedent("""\
 """)
 
 
-class LLMAgent:
-    """OpenAI-compatible LLM agent using API_BASE_URL + MODEL_NAME."""
-
-    def __init__(self) -> None:
-        from openai import OpenAI  # All LLM calls use the OpenAI client
-
-        api_key = os.getenv("OPENAI_API_KEY") or HF_TOKEN
-        if not api_key:
-            raise EnvironmentError(
-                "Set OPENAI_API_KEY (or HF_TOKEN) to use the LLM agent.\n"
-                "Run with --no-llm for the heuristic baseline."
-            )
-
-        # OpenAI client configured via the required environment variables
-        self._client = OpenAI(
-            api_key=api_key,
-            base_url=API_BASE_URL,
-        )
-        self._model = MODEL_NAME
-        self._step = 0
-
-    def reset(self) -> None:
-        self._step = 0
-
-    def act(self, observation: dict) -> int:
-        self._step += 1
-        diff     = observation.get("diff_patch", "")[:1500]
-        ctx      = observation.get("repository_context", "")
-        tests_ok = observation["test_results"].get("tests_passed", 1)
-        lint_bad = observation["lint_report"].get("unused_variable", 0)
-        file_t   = observation.get("file_type", "python")
-
-        user_msg = (
-            f"File: {ctx} ({file_t})\n"
-            f"Tests passing: {bool(tests_ok)}  |  Lint unused var: {bool(lint_bad)}\n\n"
-            f"Diff:\n{diff}"
-        )
-
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user",   "content": user_msg},
-            ],
-            max_tokens=5,
-            temperature=0,
-        )
-
-        raw = response.choices[0].message.content.strip()
-        try:
-            action = int(raw[0])
-            if action not in range(5):
-                raise ValueError
-        except (ValueError, IndexError):
-            action = Action.COMMENT_BUG  # safe fallback
-        return action
-
-
 # ── Heuristic Agent (no API key) ─────────────────────────────────────────────
 
 class HeuristicAgent:
@@ -162,6 +104,75 @@ class HeuristicAgent:
                 return Action.SUGGEST_PATCH
             return Action.REJECT
         return Action.APPROVE
+
+
+# ── LLM Agent ─────────────────────────────────────────────────────────────────
+
+class LLMAgent:
+    """OpenAI-compatible LLM agent using API_BASE_URL + MODEL_NAME."""
+
+    def __init__(self) -> None:
+        from openai import OpenAI  # All LLM calls use the OpenAI client
+
+        api_key = os.getenv("OPENAI_API_KEY") or HF_TOKEN
+        self._available = False
+        if not api_key:
+            print(json.dumps({"type": "warn", "msg": "No API key found - LLMAgent will use heuristic fallback"}), flush=True)
+        else:
+            try:
+                # OpenAI client configured via the required environment variables
+                self._client = OpenAI(
+                    api_key=api_key,
+                    base_url=API_BASE_URL,
+                )
+                self._model = MODEL_NAME
+                self._available = True
+            except Exception as exc:
+                print(json.dumps({"type": "warn", "msg": f"LLM client init failed: {exc} - using heuristic fallback"}), flush=True)
+
+        self._step = 0
+        self._heuristic = HeuristicAgent()
+
+    def reset(self) -> None:
+        self._step = 0
+        self._heuristic.reset()
+
+    def act(self, observation: dict) -> int:
+        self._step += 1
+        if not self._available:
+            return self._heuristic.act(observation)
+
+        diff     = observation.get("diff_patch", "")[:1500]
+        ctx      = observation.get("repository_context", "")
+        tests_ok = observation["test_results"].get("tests_passed", 1)
+        lint_bad = observation["lint_report"].get("unused_variable", 0)
+        file_t   = observation.get("file_type", "python")
+
+        user_msg = (
+            f"File: {ctx} ({file_t})\n"
+            f"Tests passing: {bool(tests_ok)}  |  Lint unused var: {bool(lint_bad)}\n\n"
+            f"Diff:\n{diff}"
+        )
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user",   "content": user_msg},
+                ],
+                max_tokens=5,
+                temperature=0,
+            )
+            raw = response.choices[0].message.content.strip()
+            action = int(raw[0])
+            if action not in range(5):
+                raise ValueError(f"action {action} out of range")
+        except Exception as exc:
+            print(json.dumps({"type": "warn", "msg": f"LLM call failed: {exc} - using heuristic fallback"}), flush=True)
+            return self._heuristic.act(observation)
+
+        return action
 
 
 # ── Episode runner ────────────────────────────────────────────────────────────
